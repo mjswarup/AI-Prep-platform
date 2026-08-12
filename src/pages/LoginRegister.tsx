@@ -2,17 +2,22 @@ import React, { useState } from "react";
 import { LogIn, UserPlus, ArrowRight, ArrowLeft } from "lucide-react";
 
 interface LoginRegisterProps {
-  onSuccess: (userData: { name: string; college: string; branch: string; gradYear: string; dreamCompanies: string[]; isAdmin?: boolean }) => void;
+  onSuccess: (userData: { name: string; college: string; branch: string; gradYear: string; dreamCompanies: string[]; email?: string; isAdmin?: boolean }) => void;
   onBackToHome: () => void;
 }
 
 export const LoginRegister: React.FC<LoginRegisterProps> = ({ onSuccess, onBackToHome }) => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [step, setStep] = useState(1); // For registration steps
+  const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [registerError, setRegisterError] = useState<string | null>(null);
 
   // Login form states
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+
+  const ADMIN_EMAIL = "manukondajswaroop@gmail.com";
 
   // Registration states
   const [regName, setRegName] = useState("");
@@ -28,34 +33,96 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onSuccess, onBackT
 
   const companyList = ["Google", "Amazon", "Microsoft", "TCS", "Accenture", "Deloitte", "Infosys", "Nvidia"];
 
-  const isAdminLogin = loginEmail.toLowerCase().includes("admin") || loginEmail.toLowerCase().includes("@admin");
-
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginEmail || !loginPassword) return alert("Please fill all fields!");
+    setLoginError(null);
 
-    // Simulate successful login with default user details
-    onSuccess({
-      name: loginEmail.split("@")[0] || "Scholar",
-      college: "Indian Institute of Technology",
-      branch: "Computer Science & Engineering",
-      gradYear: "2027",
-      dreamCompanies: ["Google", "Amazon", "Microsoft"],
-      isAdmin: isAdminLogin,
-    });
+    if (!loginEmail || !loginPassword) {
+      setLoginError("Please fill all fields.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginEmail.trim(), password: loginPassword }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setLoginError(data?.error?.message || "Login failed. Please try again.");
+        return;
+      }
+
+      const user = data.user;
+      onSuccess({
+        name: user.name,
+        college: user.college,
+        branch: user.branch,
+        gradYear: user.gradYear,
+        dreamCompanies: user.dreamCompanies || ["Google", "Amazon"],
+        email: user.email,
+        isAdmin: Boolean(user.isAdmin),
+      });
+    } catch (error) {
+      setLoginError("Unable to reach the server. Please try again later.");
+      console.error("Login error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regName || !regCollege) return alert("Please complete registration details!");
-    
-    onSuccess({
-      name: regName,
-      college: regCollege,
-      branch: regBranch || "Information Technology",
-      gradYear: regGradYear,
-      dreamCompanies: dreamCompanies.length > 0 ? dreamCompanies : ["Amazon", "Google"]
-    });
+    setRegisterError(null);
+
+    if (!regName || !regEmail || !regPassword || !regCollege) {
+      setRegisterError("Name, email, password, and college are required.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/users/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: regName,
+          email: regEmail.trim(),
+          password: regPassword,
+          college: regCollege,
+          branch: regBranch || "Information Technology",
+          gradYear: regGradYear,
+          dreamCompanies: dreamCompanies.length > 0 ? dreamCompanies : ["Amazon", "Google"],
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setRegisterError(data?.error?.message || "Registration failed. Please try again.");
+        return;
+      }
+
+      const user = data.user;
+      onSuccess({
+        name: user.name,
+        college: user.college,
+        branch: user.branch,
+        gradYear: user.gradYear,
+        dreamCompanies: user.dreamCompanies || ["Google", "Amazon"],
+        email: user.email,
+        isAdmin: Boolean(user.isAdmin),
+      });
+    } catch (error) {
+      setRegisterError("Unable to reach the server. Please try again later.");
+      console.error("Registration error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const toggleCompany = (company: string) => {
@@ -119,10 +186,10 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onSuccess, onBackT
                   required
                 />
               </div>
-              {loginEmail && isAdminLogin && (
+              {loginEmail.trim().toLowerCase() === ADMIN_EMAIL && (
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", borderRadius: "12px", background: "rgba(0, 229, 255, 0.08)", color: "var(--text-primary)", border: "1px solid rgba(0, 229, 255, 0.15)" }}>
-                  <span style={{ fontSize: "0.8rem", fontWeight: "700" }}>Admin login detected</span>
-                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>This account will unlock admin access on success.</span>
+                  <span style={{ fontSize: "0.8rem", fontWeight: "700" }}>Admin email recognized</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Enter the admin password to unlock admin access.</span>
                 </div>
               )}
 
@@ -145,11 +212,14 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onSuccess, onBackT
                 <a style={{ color: "var(--primary-neon)", textDecoration: "none", cursor: "pointer" }}>Forgot Password?</a>
               </div>
 
-              <button type="submit" className="glass-button primary" style={{ width: "100%", justifyContent: "center", padding: "12px", marginTop: "8px" }}>
+              <button type="submit" className="glass-button primary" style={{ width: "100%", justifyContent: "center", padding: "12px", marginTop: "8px" }} disabled={isLoading}>
                 <LogIn size={16} fill="#03030b" />
-                <span>Sign In</span>
+                <span>{isLoading ? "Signing in…" : "Sign In"}</span>
               </button>
             </form>
+            {loginError && (
+              <p style={{ color: "#ff7b7b", marginTop: "12px", textAlign: "center", fontSize: "0.9rem" }}>{loginError}</p>
+            )}
 
             <div style={{ margin: "24px 0", textAlign: "center", position: "relative" }}>
               <hr style={{ borderColor: "rgba(255,255,255,0.06)" }} />
@@ -158,10 +228,10 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onSuccess, onBackT
 
             {/* Social Logins */}
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <button onClick={() => onSuccess({ name: "Google Scholar", college: "Global Institute", branch: "CS", gradYear: "2027", dreamCompanies: ["Google"] })} className="glass-button" style={{ width: "100%", justifyContent: "center", background: "rgba(255,255,255,0.01)" }}>
+              <button type="button" onClick={() => alert("Social login is not supported in this version. Please login with email and password.")} className="glass-button" style={{ width: "100%", justifyContent: "center", background: "rgba(255,255,255,0.01)" }}>
                 <span>Continue with Google</span>
               </button>
-              <button onClick={() => onSuccess({ name: "Microsoft Scholar", college: "Global Institute", branch: "CS", gradYear: "2027", dreamCompanies: ["Microsoft"] })} className="glass-button" style={{ width: "100%", justifyContent: "center", background: "rgba(255,255,255,0.01)" }}>
+              <button type="button" onClick={() => alert("Social login is not supported in this version. Please login with email and password.")} className="glass-button" style={{ width: "100%", justifyContent: "center", background: "rgba(255,255,255,0.01)" }}>
                 <span>Continue with Microsoft</span>
               </button>
             </div>
@@ -336,14 +406,17 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onSuccess, onBackT
                     <button type="button" onClick={() => setStep(2)} className="glass-button" style={{ flex: 1, justifyContent: "center" }}>
                       <ArrowLeft size={16} /> Back
                     </button>
-                    <button type="submit" className="glass-button primary" style={{ flex: 1, justifyContent: "center" }}>
+                    <button type="submit" className="glass-button primary" style={{ flex: 1, justifyContent: "center" }} disabled={isLoading}>
                       <UserPlus size={16} fill="#03030b" />
-                      <span>Register</span>
+                      <span>{isLoading ? "Registering…" : "Register"}</span>
                     </button>
                   </div>
                 </div>
               )}
             </form>
+            {registerError && (
+              <p style={{ color: "#ff7b7b", marginTop: "12px", textAlign: "center", fontSize: "0.9rem" }}>{registerError}</p>
+            )}
 
             <p style={{ textAlign: "center", fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "32px" }}>
               Already registered?{" "}

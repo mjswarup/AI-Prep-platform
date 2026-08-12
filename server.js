@@ -6,10 +6,15 @@ import { exec } from 'child_process';
 import multer from 'multer';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
+import { MongoClient } from 'mongodb';
+import bcrypt from 'bcryptjs';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const MONGODB_URI = process.env.MONGODB_URI || '';
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'prep_platform';
+const MONGODB_USERS_COLLECTION = process.env.MONGODB_USERS_COLLECTION || 'users';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -18,6 +23,7 @@ app.use(express.static('public'));
 
 const PROCTORING_DATA_DIR = path.join(__dirname, 'proctoring_data');
 const MOCK_PAPERS_DIR = path.join(__dirname, 'mock_papers');
+const USERS_FILE = path.join(__dirname, 'users.json');
 if (!fs.existsSync(PROCTORING_DATA_DIR)) {
     fs.mkdirSync(PROCTORING_DATA_DIR);
 }
@@ -26,6 +32,202 @@ if (!fs.existsSync(MOCK_PAPERS_DIR)) {
 }
 
 const upload = multer({ storage: multer.diskStorage({ destination: MOCK_PAPERS_DIR, filename: (req, file, cb) => cb(null, file.originalname) }) });
+
+let mongoClient = null;
+let usersCollection = null;
+let useMongo = Boolean(MONGODB_URI);
+
+const initMongo = async () => {
+  if (!useMongo) {
+    console.log('MongoDB is not configured. Using local JSON persistence.');
+    return;
+  }
+
+  try {
+    mongoClient = new MongoClient(MONGODB_URI);
+    await mongoClient.connect();
+    const db = mongoClient.db(MONGODB_DB_NAME);
+    usersCollection = db.collection(MONGODB_USERS_COLLECTION);
+    await usersCollection.createIndex({ email: 1 }, { unique: true });
+    console.log(`Connected to MongoDB database '${MONGODB_DB_NAME}', collection '${MONGODB_USERS_COLLECTION}'.`);
+  } catch (error) {
+    console.error('Failed to connect to MongoDB:', error);
+    useMongo = false;
+  }
+};
+
+const readUsers = () => {
+  try {
+    const raw = fs.readFileSync(USERS_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch (error) {
+    console.error('Error reading users file:', error);
+    return [];
+  }
+};
+
+const writeUsers = (users) => {
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Error writing users file:', error);
+  }
+};
+
+const hashPassword = async (rawPassword) => {
+  return await bcrypt.hash(rawPassword, 10);
+};
+
+const comparePassword = async (rawPassword, hashedPassword) => {
+  if (!hashedPassword) {
+    return false;
+  }
+  return await bcrypt.compare(rawPassword, hashedPassword);
+};
+
+const findUserByEmail = async (email) => {
+  const normalized = email.trim().toLowerCase();
+  if (useMongo && usersCollection) {
+    return await usersCollection.findOne({ email: normalized });
+  }
+
+  const users = readUsers();
+  return users.find((u) => u.email.toLowerCase() === normalized);
+};
+
+const updateLocalUserPassword = (email, hashedPassword) => {
+  const users = readUsers();
+  const normalized = email.trim().toLowerCase();
+  const updated = users.map((user) => {
+    if (user.email.toLowerCase() === normalized) {
+      return { ...user, password: hashedPassword };
+    }
+    return user;
+  });
+  writeUsers(updated);
+};
+
+const insertUser = async (user) => {
+  const normalized = {
+    ...user,
+    email: user.email.trim().toLowerCase(),
+    password: await hashPassword(user.password),
+  };
+
+  if (useMongo && usersCollection) {
+    const result = await usersCollection.insertOne(normalized);
+    return { ...normalized, id: result.insertedId.toString() };
+  }
+
+  const users = readUsers();
+  users.push(normalized);
+  writeUsers(users);
+  return normalized;
+};
+
+const getAllUsers = async () => {
+  if (useMongo && usersCollection) {
+    return await usersCollection.find({}, { projection: { password: 0 } }).toArray();
+  }
+  return readUsers().map(({ password, ...rest }) => rest);
+};
+
+const deleteNonAdminUsers = async () => {
+  if (useMongo && usersCollection) {
+    await usersCollection.deleteMany({ role: { $ne: 'admin' } });
+    return;
+  }
+  const users = readUsers();
+  const filtered = users.filter((u) => u.email.toLowerCase() === 'manukondajswaroop@gmail.com');
+  writeUsers(filtered);
+};
+
+const normalizeLocalUser = async (user) => {
+  const normalized = {
+    ...user,
+    email: user.email.trim().toLowerCase(),
+    role: user.role || (user.isAdmin ? 'admin' : 'student'),
+    dreamCompanies: user.dreamCompanies?.length ? user.dreamCompanies : ['Google', 'Amazon'],
+    streak: typeof user.streak === 'number' ? user.streak : 0,
+    xp: typeof user.xp === 'number' ? user.xp : 0,
+    level: typeof user.level === 'number' ? user.level : 0,
+    isAdmin: Boolean(user.isAdmin),
+  };
+
+  if (!/^(?:\$2[aby]\$|\$argon2)/.test(normalized.password || '')) {
+    normalized.password = await hashPassword(normalized.password || '');
+  }
+
+  return normalized;
+};
+
+const migrateLocalUsersToMongo = async () => {
+  if (!useMongo || !usersCollection) return;
+
+  const localUsers = readUsers();
+  for (const user of localUsers) {
+    if (!user?.email) continue;
+    const normalized = await normalizeLocalUser(user);
+    const existing = await usersCollection.findOne({ email: normalized.email });
+    if (!existing) {
+      await usersCollection.insertOne(normalized);
+      continue;
+    }
+
+    const updates = {};
+    if (!existing.role && normalized.role) updates.role = normalized.role;
+    if (!existing.isAdmin && normalized.isAdmin) updates.isAdmin = normalized.isAdmin;
+    if (normalized.password && !/^(?:\$2[aby]\$|\$argon2)/.test(existing.password || '')) {
+      updates.password = normalized.password;
+    }
+    if (Object.keys(updates).length) {
+      await usersCollection.updateOne({ email: normalized.email }, { $set: updates });
+    }
+  }
+};
+
+const ensureAdminUser = async () => {
+  if (!useMongo || !usersCollection) return;
+
+  const adminEmail = (process.env.ADMIN_EMAIL || 'manukondajswaroop@gmail.com').trim().toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD || 'swarup@22';
+  const adminName = process.env.ADMIN_NAME || 'Admin';
+  const adminCollege = process.env.ADMIN_COLLEGE || 'Admin Institute';
+
+  const existingAdmin = await usersCollection.findOne({ email: adminEmail });
+  const hashedPassword = await hashPassword(adminPassword);
+  const adminUser = {
+    id: `admin_${Date.now()}`,
+    name: adminName,
+    email: adminEmail,
+    password: hashedPassword,
+    role: 'admin',
+    college: adminCollege,
+    branch: 'Administration',
+    gradYear: process.env.ADMIN_GRAD_YEAR || '2026',
+    dreamCompanies: ['Admin'],
+    streak: 0,
+    xp: 0,
+    level: 0,
+    isAdmin: true,
+  };
+
+  if (!existingAdmin) {
+    await usersCollection.insertOne(adminUser);
+    console.log(`MongoDB admin user created for ${adminEmail}`);
+    return;
+  }
+
+  const updates = {};
+  if (existingAdmin.role !== 'admin') updates.role = 'admin';
+  if (!existingAdmin.isAdmin) updates.isAdmin = true;
+  if (!/^(?:\$2[aby]\$|\$argon2)/.test(existingAdmin.password || '')) updates.password = hashedPassword;
+
+  if (Object.keys(updates).length) {
+    await usersCollection.updateOne({ email: adminEmail }, { $set: updates });
+    console.log(`MongoDB admin user updated for ${adminEmail}`);
+  }
+};
 
 const extractTextFromFile = async (filePath) => {
   const buffer = fs.readFileSync(filePath);
@@ -115,6 +317,97 @@ app.get('/api/mock-papers', (req, res) => {
   } catch (error) {
     console.error('Error reading mock paper folder:', error);
     return res.status(500).json({ error: { message: 'Unable to read mock paper folder.' } });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ error: { message: 'Email and password are required.' } });
+  }
+
+  try {
+    const user = await findUserByEmail(email);
+    if (!user) {
+      return res.status(401).json({ error: { message: 'Invalid email or password.' } });
+    }
+
+    const isMatched = await comparePassword(password, user.password);
+    if (!isMatched) {
+      if (user.password === password) {
+        const hashed = await hashPassword(password);
+        if (useMongo && usersCollection) {
+          await usersCollection.updateOne({ email: user.email }, { $set: { password: hashed } });
+        } else {
+          updateLocalUserPassword(email, hashed);
+        }
+      } else {
+        return res.status(401).json({ error: { message: 'Invalid email or password.' } });
+      }
+    }
+
+    const { password: _pwd, ...userSafe } = user;
+    return res.json({ user: userSafe });
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({ error: { message: 'Unable to authenticate user.' } });
+  }
+});
+
+app.post('/api/users/register', async (req, res) => {
+  const { name, email, password, college, branch, gradYear, dreamCompanies } = req.body || {};
+  if (!name || !email || !password || !college) {
+    return res.status(400).json({ error: { message: 'Name, email, password, and college are required.' } });
+  }
+
+  try {
+    const existing = await findUserByEmail(email);
+    if (existing) {
+      return res.status(409).json({ error: { message: 'User already exists.' } });
+    }
+
+    const newUser = {
+      id: `user_${Date.now()}`,
+      name,
+      email: email.trim().toLowerCase(),
+      password,
+      role: 'student',
+      college,
+      branch: branch || 'Computer Science & Engineering',
+      gradYear: gradYear || '2027',
+      dreamCompanies: dreamCompanies?.length ? dreamCompanies : ['Google', 'Amazon'],
+      streak: 0,
+      xp: 0,
+      level: 0,
+      isAdmin: false,
+    };
+
+    const inserted = await insertUser(newUser);
+    const { password: _pwd, ...userSafe } = inserted;
+    return res.status(201).json({ user: userSafe });
+  } catch (error) {
+    console.error('Registration error:', error);
+    return res.status(500).json({ error: { message: 'Unable to register user.' } });
+  }
+});
+
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await getAllUsers();
+    return res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return res.status(500).json({ error: { message: 'Unable to fetch users.' } });
+  }
+});
+
+app.delete('/api/users', async (req, res) => {
+  try {
+    await deleteNonAdminUsers();
+    return res.json({ message: 'Removed non-admin users; admin user preserved.' });
+  } catch (error) {
+    console.error('Error deleting users:', error);
+    return res.status(500).json({ error: { message: 'Unable to remove users.' } });
   }
 });
 
@@ -256,9 +549,23 @@ app.post('/proctoring/data', (req, res) => {
     res.status(200).send('Data received');
 });
 
-app.listen(PORT, () => {
-    console.log(`Prep platform server running on http://localhost:${PORT}`);
-    if (!OPENAI_API_KEY) {
-        console.log('AI coaching is running in mock mode until OPENAI_API_KEY is set on the server.');
+const startServer = async () => {
+    await initMongo();
+
+    if (useMongo && usersCollection) {
+        await migrateLocalUsersToMongo();
+        await ensureAdminUser();
     }
-});
+
+    app.listen(PORT, () => {
+        console.log(`Prep platform server running on http://localhost:${PORT}`);
+        if (!OPENAI_API_KEY) {
+            console.log('AI coaching is running in mock mode until OPENAI_API_KEY is set on the server.');
+        }
+        if (!useMongo) {
+            console.log('User storage is using local JSON fallback. Set MONGODB_URI to enable MongoDB persistence.');
+        }
+    });
+};
+
+startServer();

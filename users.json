@@ -1,0 +1,16 @@
+[
+  {
+    "id": "admin",
+    "name": "Admin",
+    "email": "manukondajswaroop@gmail.com",
+    "college": "Admin Institute",
+    "branch": "Administration",
+    "gradYear": "2026",
+    "dreamCompanies": ["Admin"],
+    "streak": 0,
+    "xp": 0,
+    "level": 0,
+    "isAdmin": true,
+    "password": "swarup@22"
+  }
+]

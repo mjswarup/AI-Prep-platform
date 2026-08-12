@@ -21,6 +21,7 @@ import { TestGenerator } from "./pages/TestGenerator";
 
 interface User {
   name: string;
+  email?: string;
   college: string;
   branch: string;
   gradYear: string;
@@ -31,22 +32,25 @@ interface User {
   isAdmin?: boolean;
 }
 
+const defaultUserProfile: User = {
+  name: "Guest Student",
+  email: "guest@prepplatform.local",
+  college: "None",
+  branch: "None",
+  gradYear: "2027",
+  dreamCompanies: ["Google", "Amazon"],
+  streak: 0,
+  xp: 0,
+  level: 0,
+};
+
 function App() {
   const [currentTab, setCurrentTab] = useState<string>("landing");
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   // Logged in user profile data
-  const [user, setUser] = useState<User>({
-    name: "Ananya Rao",
-    college: "IIT Madras",
-    branch: "Computer Science & Engineering",
-    gradYear: "2027",
-    dreamCompanies: ["Google", "Amazon", "Microsoft"],
-    streak: 4,
-    xp: 340,
-    level: 1
-  });
+  const [user, setUser] = useState<User>(defaultUserProfile);
 
   // Callback to reward XP
   const handleGainXp = useCallback((xpGained: number) => {
@@ -72,16 +76,17 @@ function App() {
   }, []);
 
   const handleLoginSuccess = useCallback((userData: Partial<User> & { isAdmin?: boolean }) => {
-    setUser(prevUser => ({
-      ...prevUser,
+    setUser({
+      ...defaultUserProfile,
       ...userData,
-    }));
+    });
     setIsAdmin(Boolean(userData.isAdmin));
     setIsLoggedIn(true);
     setCurrentTab("dashboard");
   }, []);
 
   const handleLogout = useCallback(() => {
+    setUser(defaultUserProfile);
     setIsLoggedIn(false);
     setIsAdmin(false);
     setCurrentTab("landing");
@@ -123,12 +128,12 @@ function App() {
 
   const onExploreCompanies = useCallback(() => {
     // Direct navigation to explore companies is allowed for guests
-    setUser(prevUser => ({
-      ...prevUser,
+    setUser({
+      ...defaultUserProfile,
       name: "Guest Student",
       college: "None",
-      dreamCompanies: ["Google", "Amazon"]
-    }));
+      dreamCompanies: ["Google", "Amazon"],
+    });
     setIsLoggedIn(true); // Simulate a guest login to show dashboard framework
     setCurrentTab("companies");
   }, []);

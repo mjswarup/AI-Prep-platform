@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { companiesData, crtQuestions, previousYearPaperBank, buildMixedAssessment, type Company, type CRTQuestion } from "../mockData";
-import { Database, Plus, Trash2, BookOpen } from "lucide-react";
+import { Database, Plus, Trash2, BookOpen, FolderOpen } from "lucide-react";
 
 export const AdminPanel: React.FC = () => {
   const [companies, setCompanies] = useState<Company[]>(companiesData);
@@ -39,6 +39,8 @@ export const AdminPanel: React.FC = () => {
     setNewCompEligibility("");
   };
 
+  const [folderMessage, setFolderMessage] = useState("");
+
   const handleAddQuestion = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newQText.trim() || !newQAnswer.trim()) return;
@@ -56,6 +58,21 @@ export const AdminPanel: React.FC = () => {
     setQuestions([newQ, ...questions]);
     setNewQText("");
     setNewQAnswer("");
+  };
+
+  const handleOpenMockPaperFolder = async () => {
+    try {
+      const response = await fetch('/api/mock-papers/open', { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) {
+        setFolderMessage(data.error?.message || 'Unable to open folder.');
+      } else {
+        setFolderMessage(data.message || 'Opened mock_papers folder.');
+      }
+    } catch (error) {
+      console.error('Open folder error:', error);
+      setFolderMessage('Unable to open mock_papers folder.');
+    }
   };
 
   const handleDeleteCompany = (name: string) => {
@@ -93,6 +110,22 @@ export const AdminPanel: React.FC = () => {
           <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Paper Bank Entries</p>
           <h3 style={{ fontSize: "1.8rem", fontWeight: "900", color: "#ffea00", marginTop: "4px" }}>{previousYearPaperBank.length}</h3>
         </div>
+      </div>
+
+      <div className="glass-panel" style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <FolderOpen size={18} color="var(--secondary-neon)" />
+          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "800" }}>Admin Folder Access</h3>
+        </div>
+        <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.9rem" }}>
+          Open the server folder that stores uploaded mock paper files directly from the admin dashboard.
+        </p>
+        <button onClick={handleOpenMockPaperFolder} className="glass-button primary" style={{ width: "fit-content" }}>
+          Open mock_papers folder
+        </button>
+        {folderMessage && (
+          <p style={{ margin: "0", color: "var(--text-primary)", fontSize: "0.9rem" }}>{folderMessage}</p>
+        )}
       </div>
 
       <div className="glass-panel" style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "18px" }}>

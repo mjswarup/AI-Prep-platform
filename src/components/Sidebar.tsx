@@ -24,10 +24,11 @@ interface SidebarProps {
     xp: number;
     level: number;
   };
+  isAdmin: boolean;
   onLogout: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, user, onLogout }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, user, isAdmin, onLogout }) => {
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "crt", label: "Daily CRT", icon: BookOpen },
@@ -35,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, user,
     { id: "companies", label: "Company Prep", icon: Building2 },
     { id: "interview", label: "AI Voice Interview", icon: Mic },
     { id: "resume", label: "Resume Analyzer", icon: FileText },
+    { id: "test-generator", label: "Paper Generator", icon: FileText },
     { id: "coach", label: "AI Career Coach", icon: MessageSquare },
     { id: "leaderboard", label: "Leaderboard", icon: Trophy },
     { id: "gamification", label: "Gamification", icon: Sparkles },
@@ -91,20 +93,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, user,
 
       <nav style={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
         <ul className="sidebar-menu">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <li key={item.id}>
-                <a
-                  className={`sidebar-link ${currentTab === item.id ? "active" : ""}`}
-                  onClick={() => onTabChange(item.id)}
-                >
-                  <Icon size={18} />
-                  <span>{item.label}</span>
-                </a>
-              </li>
-            );
-          })}
+          {menuItems
+            .filter((item) => item.id !== "admin" || isAdmin)
+            .map((item) => {
+              const Icon = item.icon;
+              return (
+                <li key={item.id}>
+                  <a
+                    className={`sidebar-link ${currentTab === item.id ? "active" : ""}`}
+                    onClick={() => onTabChange(item.id)}
+                  >
+                    <Icon size={18} />
+                    <span>{item.label}</span>
+                  </a>
+                </li>
+              );
+            })}
         </ul>
 
         {/* Footer info & Logout */}

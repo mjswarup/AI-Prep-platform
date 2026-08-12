@@ -131,30 +131,30 @@ export const PlacementAssessment: React.FC = () => {
     };
   }, [selectedAnswers, testResults]);
 
+  const generateAdvice = (): string[] => {
+    const advice: string[] = [];
+
+    if (report.weakAreas.includes("Aptitude")) {
+      advice.push("Revise percentages, ratio-proportion, time and work, and simple interest. Practice 15 timed aptitude questions daily.");
+    }
+    if (report.weakAreas.includes("Reasoning")) {
+      advice.push("Work on number series, seating arrangements, coding-decoding, and blood-relation puzzles. Solve 10 reasoning questions every day.");
+    }
+    if (report.weakAreas.includes("Verbal")) {
+      advice.push("Improve grammar, vocabulary, and sentence correction. Read editorials and practice one paragraph-writing drill daily.");
+    }
+    if (report.weakAreas.includes("Technical Coding")) {
+      advice.push("Revise arrays, strings, loops, recursion, and common DSA patterns. Practice 2 coding problems daily and explain your approach aloud.");
+    }
+    if (report.weakAreas.includes("General Speed & Accuracy")) {
+      advice.push("Improve time management by working on mock tests and reviewing errors after each attempt.");
+    }
+
+    return advice;
+  };
+
   useEffect(() => {
     if (!showReport) return;
-
-    const generateAdvice = () => {
-      const advice: string[] = [];
-
-      if (report.weakAreas.includes("Aptitude")) {
-        advice.push("Revise percentages, ratio-proportion, time and work, and simple interest. Practice 15 timed aptitude questions daily.");
-      }
-      if (report.weakAreas.includes("Reasoning")) {
-        advice.push("Work on number series, seating arrangements, coding-decoding, and blood-relation puzzles. Solve 10 reasoning questions every day.");
-      }
-      if (report.weakAreas.includes("Verbal")) {
-        advice.push("Improve grammar, vocabulary, and sentence correction. Read editorials and practice one paragraph-writing drill daily.");
-      }
-      if (report.weakAreas.includes("Technical Coding")) {
-        advice.push("Revise arrays, strings, loops, recursion, and common DSA patterns. Practice 2 coding problems daily and explain your approach aloud.");
-      }
-      if (report.weakAreas.includes("General Speed & Accuracy")) {
-        advice.push("Improve time management by working on mock tests and reviewing errors after each attempt.");
-      }
-
-      return advice;
-    };
 
     const summary = {
       generatedAt: Date.now(),

@@ -17,6 +17,7 @@ import { Gamification } from "./pages/Gamification";
 import { Resources } from "./pages/Resources";
 import { AdminPanel } from "./pages/AdminPanel";
 import { PlacementAssessment } from "./pages/PlacementAssessment";
+import { TestGenerator } from "./pages/TestGenerator";
 
 interface User {
   name: string;
@@ -27,11 +28,13 @@ interface User {
   streak: number;
   xp: number;
   level: number;
+  isAdmin?: boolean;
 }
 
 function App() {
   const [currentTab, setCurrentTab] = useState<string>("landing");
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   // Logged in user profile data
   const [user, setUser] = useState<User>({
@@ -68,17 +71,19 @@ function App() {
     });
   }, []);
 
-  const handleLoginSuccess = useCallback((userData: Partial<User>) => {
+  const handleLoginSuccess = useCallback((userData: Partial<User> & { isAdmin?: boolean }) => {
     setUser(prevUser => ({
       ...prevUser,
       ...userData,
     }));
+    setIsAdmin(Boolean(userData.isAdmin));
     setIsLoggedIn(true);
     setCurrentTab("dashboard");
   }, []);
 
   const handleLogout = useCallback(() => {
     setIsLoggedIn(false);
+    setIsAdmin(false);
     setCurrentTab("landing");
   }, []);
 
@@ -107,8 +112,10 @@ function App() {
         return <Resources />;
       case "exam":
         return <PlacementAssessment />;
+      case "test-generator":
+        return <TestGenerator />;
       case "admin":
-        return <AdminPanel />;
+        return isAdmin ? <AdminPanel /> : <Dashboard user={user} onNavigate={setCurrentTab} />;
       default:
         return <Dashboard user={user} onNavigate={setCurrentTab} />;
     }
@@ -134,6 +141,7 @@ function App() {
             currentTab={currentTab} 
             onTabChange={setCurrentTab} 
             user={user} 
+            isAdmin={isAdmin}
             onLogout={handleLogout}
           />
           <main className="dashboard-content">

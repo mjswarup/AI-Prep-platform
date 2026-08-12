@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { LogIn, UserPlus, ArrowRight, ArrowLeft } from "lucide-react";
 
 interface LoginRegisterProps {
-  onSuccess: (userData: { name: string; college: string; branch: string; gradYear: string; dreamCompanies: string[] }) => void;
+  onSuccess: (userData: { name: string; college: string; branch: string; gradYear: string; dreamCompanies: string[]; isAdmin?: boolean }) => void;
   onBackToHome: () => void;
 }
 
@@ -28,17 +28,20 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onSuccess, onBackT
 
   const companyList = ["Google", "Amazon", "Microsoft", "TCS", "Accenture", "Deloitte", "Infosys", "Nvidia"];
 
+  const isAdminLogin = loginEmail.toLowerCase().includes("admin") || loginEmail.toLowerCase().includes("@admin");
+
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) return alert("Please fill all fields!");
-    
+
     // Simulate successful login with default user details
     onSuccess({
       name: loginEmail.split("@")[0] || "Scholar",
       college: "Indian Institute of Technology",
       branch: "Computer Science & Engineering",
       gradYear: "2027",
-      dreamCompanies: ["Google", "Amazon", "Microsoft"]
+      dreamCompanies: ["Google", "Amazon", "Microsoft"],
+      isAdmin: isAdminLogin,
     });
   };
 
@@ -116,6 +119,12 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onSuccess, onBackT
                   required
                 />
               </div>
+              {loginEmail && isAdminLogin && (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", borderRadius: "12px", background: "rgba(0, 229, 255, 0.08)", color: "var(--text-primary)", border: "1px solid rgba(0, 229, 255, 0.15)" }}>
+                  <span style={{ fontSize: "0.8rem", fontWeight: "700" }}>Admin login detected</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>This account will unlock admin access on success.</span>
+                </div>
+              )}
 
               <div>
                 <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--text-muted)", fontWeight: "bold", display: "block", marginBottom: "6px" }}>Password</label>

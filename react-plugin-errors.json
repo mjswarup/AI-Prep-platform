@@ -1,0 +1,9 @@
+{ "diagnostics": [{"message": "React Hook useEffect has a missing dependency: 'handleSubmitQuiz'","code": "react-hooks(exhaustive-deps)","severity": "warning","causes": [],"url": "https://oxc.rs/docs/guide/usage/linter/rules/react/exhaustive-deps.html","help": "Either include it or remove the dependency array.","filename": "src/pages/DailyCRT.tsx","labels": [{"label": "useEffect uses `handleSubmitQuiz` here","span": {"offset": 1717,"length": 16,"line": 44,"column": 7}},{"span": {"offset": 1787,"length": 23,"line": 47,"column": 6}}],"related": []},
+{"message": "React Hook useEffect has a missing dependency: 'drawWheel'","code": "react-hooks(exhaustive-deps)","severity": "warning","causes": [],"url": "https://oxc.rs/docs/guide/usage/linter/rules/react/exhaustive-deps.html","help": "Either include it or remove the dependency array.","filename": "src/components/SpinWheel.tsx","labels": [{"label": "useEffect uses `drawWheel` here","span": {"offset": 2937,"length": 9,"line": 102,"column": 5}},{"span": {"offset": 2956,"length": 2,"line": 103,"column": 6}}],"related": []},
+{"message": "Catch parameter 'e' is caught but never used.","code": "eslint(no-unused-vars)","severity": "warning","causes": [],"url": "https://oxc.rs/docs/guide/usage/linter/rules/eslint/no-unused-vars.html","help": "Consider handling this error.","filename": "src/pages/VoiceInterview.tsx","labels": [{"label": "'e' is declared here","span": {"offset": 3925,"length": 1,"line": 122,"column": 16}}],"related": []}],
+              "number_of_files": 21,
+              "number_of_rules": 103,
+              "threads_count": 8,
+              "start_time": 0.0224188
+            }
+            

@@ -1,0 +1,52 @@
+{
+  "bankVersion": "1.0.0",
+  "updatedOn": "2026-08-12",
+  "categories": [
+    "technical",
+    "written",
+    "aptitude",
+    "reasoning",
+    "verbal",
+    "coding"
+  ],
+  "paperSets": [
+    {
+      "id": "technical-dsa-2024",
+      "category": "technical",
+      "title": "Previous Year DSA Technical Paper",
+      "year": 2024,
+      "difficulty": "medium",
+      "durationMinutes": 60,
+      "path": "technical/2024-dsa.md"
+    },
+    {
+      "id": "written-aptitude-2024",
+      "category": "written",
+      "title": "Previous Year Aptitude & Written Paper",
+      "year": 2024,
+      "difficulty": "medium",
+      "durationMinutes": 45,
+      "path": "written/2024-aptitude.md"
+    },
+    {
+      "id": "technical-dbms-2023",
+      "category": "technical",
+      "title": "DBMS / CS Fundamentals Paper",
+      "year": 2023,
+      "difficulty": "medium",
+      "durationMinutes": 50,
+      "path": "technical/2023-dbms.md"
+    }
+  ],
+  "recommendedMix": {
+    "coding": 40,
+    "aptitude": 25,
+    "reasoning": 20,
+    "verbal": 15,
+    "technicalTheory": 20
+  },
+  "assessmentStrategy": {
+    "mode": "mixed-history-pattern",
+    "notes": "Build a placement test using a weighted mix of old paper patterns while rotating questions to avoid direct repetition."
+  }
+}
